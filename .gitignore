@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+*.tlog
+*.pdb
+*.log
+*.ilk
+*.ipch
+*.db
+*.opendb
+*.db-shm
+*.db-wal
+.vs/Boids/v16/.suo
+.vs/Boids/config/applicationhost.config
