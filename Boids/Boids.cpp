@@ -1,10 +1,11 @@
 // Includes
 #include "Boids.h"
+#include "BoidVisual.h"
 
 // Entry point
 int main()
 {
-	Engine engine( "AI Steering Demo" );
+	Engine engine( "AI Steering Demo", sf::seconds( 1.0f / 30.0f ), false );
 	engine.RegisterState< GameState >( true );
 	engine.Run();
 
@@ -27,12 +28,10 @@ GameState::GameState( StateManager& stateManager, Context context )
 
 Reflex::Components::Steering::Handle GameState::CreateBoid( const sf::Vector2f& pos )
 {
-	auto newBoid = GetWorld().CreateObject( pos );
+	auto newBoid = GetWorld().CreateObject( pos, 0.0f, sf::Vector2f( 3.0f, 3.0f ) );
 	auto boid = newBoid.AddComponent< Reflex::Components::Steering >();
 
-	auto circle = newBoid.AddComponent< Reflex::Components::SFMLObject >( sf::CircleShape( 10.0f, 30 ) );
-	circle->GetCircleShape().setFillColor( sf::Color::Red );
-	
+	auto circle = newBoid.AddComponent< BoidVisual >( sf::Color::White );
 	return boid;
 }
 
@@ -95,10 +94,16 @@ void GameState::Render()
 		case DemoTypes::Flee:
 			Flee( !updateBehaviour ); break;
 		case DemoTypes::Alignment:
+			Alignment( !updateBehaviour ); break;
 		case DemoTypes::Cohesion:
+			Cohesion( !updateBehaviour ); break;
 		case DemoTypes::Separation:
+			Separation( !updateBehaviour ); break;
 		case DemoTypes::Flocking:
+			Flocking( !updateBehaviour ); break;
 		case DemoTypes::FlockingWithPredators:
+			Flocking( !updateBehaviour ); break;
+			Predators( !updateBehaviour ); break;
 		case DemoTypes::CollisionAvoidance:
 		case DemoTypes::PathFollowing:
 		case DemoTypes::LeaderFollowing:
@@ -121,16 +126,17 @@ void GameState::Render()
 	case DemoTypes::Seek:
 		RenderSeek( changed ); break;
 	case DemoTypes::Flee:
-		break;
+		RenderFlee( changed ); break;
 	case DemoTypes::Alignment:
-		break;
+		RenderAlignment( changed ); break;
 	case DemoTypes::Cohesion:
-		break;
+		RenderCohesion( changed ); break;
 	case DemoTypes::Separation:
-		break;
+		RenderSeparation( changed ); break;
 	case DemoTypes::Flocking:
-		break;
+		RenderFlocking( changed ); break;
 	case DemoTypes::FlockingWithPredators:
+		RenderFlocking( changed ); break;
 		break;
 	case DemoTypes::CollisionAvoidance:
 		break;
@@ -214,7 +220,10 @@ void GameState::Seek( bool defaultValues )
 
 void GameState::RenderSeek( bool velocityChanged )
 {
-	if( ImGui::SliderFloat( "Slowing Radius", &slowingRadius, 0.0f, 1000.0f ) || velocityChanged )
+	bool changed = ImGui::SliderFloat( "Slowing Radius", &slowingRadius, 0.0f, 1000.0f ) || velocityChanged;
+	changed = ImGui::SliderFloat( "Effective Distance", &ignoreDistance, 0.0f, 1000.0f ) || changed;
+	
+	if( changed )
 		Seek( false );
 }
 
@@ -227,6 +236,104 @@ void GameState::Flee( bool defaultValues )
 		[&]( const Reflex::Components::Steering::Handle& boid )
 	{
 		boid->ClearBehaviours();
-		boid->Evade( mousePosition, maxVelocity );
+		boid->Evade( mousePosition, ignoreDistance, maxVelocity );
 	} );
+}
+
+void GameState::RenderFlee( bool velocityChanged )
+{
+	if( ImGui::SliderFloat( "Effective Distance", &ignoreDistance, 0.0f, 1000.0f ) || velocityChanged )
+		Flee( false );
+}
+
+void GameState::Alignment( bool defaultValues )
+{
+	GetWorld().GetSystem< Reflex::Systems::SteeringSystem >()->ForEachObject< Reflex::Components::Steering >(
+		[&]( const Reflex::Components::Steering::Handle& boid )
+	{
+		boid->ClearBehaviours();
+		boid->Wander( wanderCircleRadius, wanderCircleDistance, wanderAngleDelta, maxVelocity );
+		boid->Alignment( neighbourRange, alignmentForce, maxVelocity );
+	} );
+}
+
+void GameState::RenderAlignment( bool velocityChanged )
+{
+	bool changed = ImGui::SliderFloat( "Alignment Force", &alignmentForce, 0.0f, 2.0f ) || velocityChanged;
+	changed = ImGui::SliderFloat( "Neighbour Range", &neighbourRange, 0.0f, 3000.0f ) || changed;
+
+	if( changed )
+		Alignment( false );
+}
+
+void GameState::Cohesion( bool defaultValues )
+{
+	GetWorld().GetSystem< Reflex::Systems::SteeringSystem >()->ForEachObject< Reflex::Components::Steering >(
+		[&]( const Reflex::Components::Steering::Handle& boid )
+	{
+		boid->ClearBehaviours();
+		boid->Wander( wanderCircleRadius, wanderCircleDistance, wanderAngleDelta, maxVelocity );
+		boid->Cohesion( neighbourRange, cohesionForce, maxVelocity );
+	} );
+}
+
+void GameState::RenderCohesion( bool velocityChanged )
+{
+	bool changed = ImGui::SliderFloat( "Cohesion Force", &cohesionForce, 0.0f, 2.0f ) || velocityChanged;
+	changed = ImGui::SliderFloat( "Neighbour Range", &neighbourRange, 0.0f, 3000.0f ) || changed;
+
+	if( changed )
+		Cohesion( false );
+}
+
+void GameState::Separation( bool defaultValues )
+{
+	GetWorld().GetSystem< Reflex::Systems::SteeringSystem >()->ForEachObject< Reflex::Components::Steering >(
+		[&]( const Reflex::Components::Steering::Handle& boid )
+	{
+		boid->ClearBehaviours();
+		boid->Wander( wanderCircleRadius, wanderCircleDistance, wanderAngleDelta, maxVelocity );
+		boid->Separation( neighbourRange, separationForce, maxVelocity );
+	} );
+}
+
+void GameState::RenderSeparation( bool velocityChanged )
+{
+	bool changed = ImGui::SliderFloat( "Separation Force", &separationForce, 0.0f, 2.0f ) || velocityChanged;
+	changed = ImGui::SliderFloat( "Neighbour Range", &neighbourRange, 0.0f, 3000.0f ) || changed;
+
+	if( changed )
+		Separation( false );
+}
+
+void GameState::Flocking( bool defaultValues )
+{
+	GetWorld().GetSystem< Reflex::Systems::SteeringSystem >()->ForEachObject< Reflex::Components::Steering >(
+		[&]( const Reflex::Components::Steering::Handle& boid )
+	{
+		boid->ClearBehaviours();
+		boid->Wander( wanderCircleRadius, wanderCircleDistance, wanderAngleDelta, maxVelocity );
+		boid->Flocking( neighbourRange, alignmentForce, cohesionForce, separationForce, maxVelocity );
+	} );
+}
+
+void GameState::RenderFlocking( bool velocityChanged )
+{
+	bool changed = ImGui::SliderFloat( "Alignment Force", &alignmentForce, 0.0f, 2.0f ) || velocityChanged; 
+	changed = ImGui::SliderFloat( "Separation Force", &separationForce, 0.0f, 2.0f ) || changed;
+	changed = ImGui::SliderFloat( "Cohesion Force", &cohesionForce, 0.0f, 2.0f ) || changed;
+	changed = ImGui::SliderFloat( "Neighbour Range", &neighbourRange, 0.0f, 3000.0f ) || changed;
+
+	if( changed )
+		Flocking( false );
+}
+
+void GameState::Predators( bool defaultValues )
+{
+
+}
+
+void GameState::RenderPredators( bool velocityChanged )
+{
+
 }
