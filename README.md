@@ -6,4 +6,4 @@ Ai simulation of boids
  - Flocking via the usual cohesion, separation, alignment
  - Flee, seek, arrival, pursue, evade
  
- ![Ant](https://github.com/pantherNZ/LangtonsAnt/blob/master/Gallery/ant1.png)  
+ ![Boids](https://github.com/pantherNZ/Boids/blob/master/Untitledfgfgd.png)  
